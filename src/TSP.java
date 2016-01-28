@@ -27,15 +27,14 @@ public class TSP {
         return cities;
     }
 
-    public static  List<String> search(final Map<String, Position> cities, final String startCity) {
+    public static List<String> search(final Map<String, Position> cities, final String startCity) {
         int numGenerated = 0;
+        if (cities.size() == 1) {
+            return Collections.singletonList(startCity);
+        }
         final PriorityQueue<State> queue = new PriorityQueue<>(
                 cities.size(),
-                (Comparator<State>) (state, t1) -> {
-                    if (state.totalCost() < t1.totalCost()) return -1;
-                    if (state.totalCost() > t1.totalCost()) return 1;
-                    return 0;
-                }
+                (Comparator<State>) (s1, s2) -> (s1.totalCost()).compareTo(s2.totalCost())
         );
         final List<String> visited = Collections.singletonList(startCity);
         queue.add(new State(startCity, visited, 0, computeHeuristic(cities, new HashSet<>(visited), startCity, startCity)));
@@ -44,6 +43,9 @@ public class TSP {
             if (next.heuristic == 0) {
                 System.out.println("Total generate nodes: " + numGenerated);
                 return next.path;
+            }
+            if (next.path.equals(Arrays.asList("A", "H", "E", "C", "G", "I", "D", "B", "F", "J"))) {
+                System.out.println("break here");
             }
             final Set<String> toBeVisited = new HashSet<>(cities.keySet());
             toBeVisited.removeAll(next.path);
@@ -84,16 +86,25 @@ public class TSP {
 
     public static double computeSpanningCost(final Map<String, Position> cities, final Set<String> unvisited, final String currentCity) {
         final Set<String> toBeVisited = new HashSet<>(unvisited);
+        final Map<String, Double> minDistanceToTree = new HashMap<>();
+        for (final String s : toBeVisited) {
+            minDistanceToTree.put(s, distance(cities.get(currentCity), cities.get(s)));
+        }
         double cost = 0;
-        String currentInTree = currentCity;
         while (!toBeVisited.isEmpty()) {
-            if (toBeVisited.contains(currentInTree)) {
-                throw new IllegalStateException("Current city is in unvisited cities set");
+            final Map.Entry<String, Double> next = Collections.min(
+                    minDistanceToTree.entrySet(),
+                    (entry1, entry2) -> entry1.getValue().compareTo(entry2.getValue())
+            );
+            toBeVisited.remove(next.getKey());
+            minDistanceToTree.remove(next.getKey());
+            cost += next.getValue();
+            for (final String s : toBeVisited) {
+                final double distanceToNext = distance(cities.get(next.getKey()), cities.get(s));
+                if (distance(cities.get(next.getKey()), cities.get(s)) < minDistanceToTree.get(s)) {
+                    minDistanceToTree.put(s, distanceToNext);
+                }
             }
-            final String next = findNearest(cities, toBeVisited, currentInTree);
-            toBeVisited.remove(next);
-            cost += distance(cities.get(currentInTree), cities.get(next));
-            currentInTree = next;
         }
         return cost;
     }
@@ -133,7 +144,7 @@ public class TSP {
             this.heuristic = heuristic;
         }
 
-        public double totalCost() {
+        public Double totalCost() {
             return costToCurrent + heuristic;
         }
     }
